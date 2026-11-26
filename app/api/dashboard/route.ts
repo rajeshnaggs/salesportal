@@ -14,7 +14,40 @@ async function fetchCustomers() {
   });
 }
 
-async function fetchPendingQuotations(cardCode: string | null) {
+async function fetchUnifiedOrderToPayment(searchParams: URLSearchParams) {
+  const mode = (searchParams.get('mode') || 'FULL').toUpperCase();
+  const value = (searchParams.get('value') || '').trim();
+const fromDate = searchParams.get('fromDate') || null;
+const toDate = searchParams.get('toDate') || null;
+
+// Pass to mssql request:
+
+
+  // Require a search value if filtering by Customer, Item, or PO
+  if (mode !== 'FULL' && !value) {
+    return NextResponse.json({
+      success: true,
+      details: [],
+    });
+  }
+
+  const pool = await getDbPool();
+  const result = await pool
+    .request()
+    .input('Mode', sql.NVarChar(20), mode)
+    .input('Value', sql.NVarChar(100), value || null)
+    .input('FromDate', sql.Date, fromDate)
+    .input('ToDate', sql.Date, toDate)
+    .execute('dbo.SP_GET_ORDER_TO_PAYMENT');
+
+  return NextResponse.json({
+    success: true,
+    details: result.recordset || [],
+  });
+}
+
+async function fetchPendingQuotations(searchParams: URLSearchParams) {
+  const cardCode = searchParams.get('cardCode');
   if (!cardCode || !cardCode.trim()) {
     return NextResponse.json({
       success: true,
@@ -37,6 +70,8 @@ async function fetchPendingQuotations(cardCode: string | null) {
   };
   const details = sets?.at(1) || [];
 
+console.log(details)
+
   return NextResponse.json({
     success: true,
     summary,
@@ -44,7 +79,8 @@ async function fetchPendingQuotations(cardCode: string | null) {
   });
 }
 
-async function fetchPendingOrders(cardCode: string | null) {
+async function fetchPendingOrders(searchParams: URLSearchParams) {
+  const cardCode = searchParams.get('cardCode');
   if (!cardCode || !cardCode.trim()) {
     return NextResponse.json({
       success: true,
@@ -82,7 +118,15 @@ async function fetchPendingOrders(cardCode: string | null) {
   });
 }
 
-async function fetchPendingInvoices(cardCode: string | null) {
+async function fetchCustomerGroups() {
+  const pool = await getDbPool();
+  const result = await pool.request().execute('sp_GetCustomerGroups');
+  return NextResponse.json({ success: true, data: result.recordset });
+}
+
+
+async function fetchPendingInvoices(searchParams: URLSearchParams) {
+  const cardCode = searchParams.get('cardCode');
   if (!cardCode || !cardCode.trim()) {
     return NextResponse.json({
       success: true,
@@ -120,24 +164,24 @@ async function fetchPendingInvoices(cardCode: string | null) {
   });
 }
 
-
 // ============================================================================
 // ACTION REGISTRY & GET HANDLER
 // ============================================================================
 
-const GET_ACTIONS: Record<string, (cardCode: string | null) => Promise<NextResponse>> = {
+const GET_ACTIONS: Record<string, (params: URLSearchParams) => Promise<NextResponse>> = {
   CUSTOMERS: () => fetchCustomers(),
+  UNIFIED_REPORT: fetchUnifiedOrderToPayment,
   QUOTATIONS: fetchPendingQuotations,
   ORDERS: fetchPendingOrders,
   INVOICES: fetchPendingInvoices,
-};
+  CUSTOMER_GROUPS: fetchCustomerGroups,
 
+};
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const action = (searchParams.get('action') || '').toUpperCase();
-    const cardCode = searchParams.get('cardCode');
 
     const handler = GET_ACTIONS[action];
     if (!handler) {
@@ -147,7 +191,7 @@ export async function GET(request: Request) {
       );
     }
 
-    return await handler(cardCode);
+    return await handler(searchParams);
   } catch (error: unknown) {
     console.error('GET /api/dashboard Error:', error);
     const sqlErr = error as {

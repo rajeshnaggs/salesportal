@@ -3,12 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-  "dev": "next dev -p 4501",
-  "build": "next build",
-  "start": "next start -p 4501",
-  "lint": "next lint"
-}
-,
+    "dev": "next dev -p 4501",
+    "build": "next build",
+    "start": "next start -p 4501",
+    "lint": "next lint"
+  },
   "dependencies": {
     "@chakra-ui/next-js": "^2.4.2",
     "@chakra-ui/react": "^3.38.0",
@@ -18,7 +17,8 @@
     "mssql": "^12.7.14",
     "next": "16.4.6",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "4.3.3",
